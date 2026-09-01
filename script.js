@@ -25,12 +25,17 @@ async function buscarProdutos() {
   statusDiv.innerText = "✨ Buscando as melhores ofertas...";
   resultsGrid.innerHTML = "";
 
+  // URL original do Mercado Livre
+  const mlUrl = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+  
+  // Utiliza o AllOrigins Proxy para contornar restrições de CORS/SSL no navegador
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(mlUrl)}`;
+
   try {
-    // Chama a nossa rota interna na Vercel
-    const response = await fetch(`/api/buscar?q=${encodeURIComponent(query)}&limit=${limit}`);
+    const response = await fetch(proxyUrl);
     
     if (!response.ok) {
-      throw new Error(`Erro status: ${response.status}`);
+      throw new Error(`Erro HTTP: ${response.status}`);
     }
 
     const data = await response.json();
@@ -68,7 +73,7 @@ async function buscarProdutos() {
     });
 
   } catch (err) {
-    console.error("Erro ao carregar produtos:", err);
+    console.error("Erro na busca:", err);
     statusDiv.innerText = "Não foi possível carregar os produtos. Tente novamente.";
   }
 }
