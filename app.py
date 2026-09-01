@@ -38,4 +38,4 @@ if st.button("🔍 Buscar Promoções"):
                     st.write(f"💰 **Preço:** R$ {preco:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                     st.markdown(f"🔗 [Ver Oferta no Mercado Livre]({item.get('permalink')})")
         else:
-            st.warning("Nenhum produto foi encontrado. Tente mudar o termo de busca.")
+            st.warning("Nenhum produto foi encontrado para o termo pesquisado.")
