@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jheny Achadinhos - Painel de Ofertas</title>
+  <title>Achadinhos da Jheny - Painel de Ofertas</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -11,18 +11,25 @@
 
   <div class="app-container">
     <header class="header">
-      <div class="logo">🛍️ Jheny <span>Achadinhos</span></div>
+      <div class="logo-container">
+        <img src="logo.png" alt="Achadinhos da Jheny Logo" class="brand-logo">
+      </div>
+      <h1>Achadinhos da <span>Jheny</span></h1>
       <p>Busque as melhores ofertas do Mercado Livre e envie direto para o Telegram!</p>
     </header>
 
     <section class="search-section">
       <div class="search-box">
-        <input type="text" id="searchInput" placeholder="O que você quer buscar hoje? (ex: smartwatch, vestido)">
-        <select id="limitSelect">
-          <option value="6">6 Produtos</option>
-          <option value="12" selected>12 Produtos</option>
-          <option value="24">24 Produtos</option>
-        </select>
+        <div class="input-group search-input-group">
+          <label for="searchInput">O que deseja buscar?</label>
+          <input type="text" id="searchInput" placeholder="Ex: smartwatch, maquiagem, vestido...">
+        </div>
+
+        <div class="input-group limit-input-group">
+          <label for="limitInput">Qtd. Produtos</label>
+          <input type="number" id="limitInput" min="1" max="50" value="10">
+        </div>
+
         <button id="searchBtn" onclick="buscarProdutos()">✨ Buscar Promoções</button>
       </div>
     </section>

@@ -1,9 +1,8 @@
 const TELEGRAM_BOT_TOKEN = "8866238346:AAFqgpZclKx0pdqC05ySfRZVek02z4L883I";
-const TELEGRAM_CHAT_ID = "-4326152013"; // Exemplo: "@canal_jheny" ou "-100xxxxxxx"
+const TELEGRAM_CHAT_ID = "-4326152013";
 
 let produtoSelecionado = null;
 
-// Permite buscar pressionando Enter no teclado do celular/computador
 document.getElementById('searchInput').addEventListener('keypress', function (e) {
   if (e.key === 'Enter') {
     buscarProdutos();
@@ -12,12 +11,14 @@ document.getElementById('searchInput').addEventListener('keypress', function (e)
 
 async function buscarProdutos() {
   const query = document.getElementById('searchInput').value.trim();
-  const limit = document.getElementById('limitSelect').value;
+  const limitInput = document.getElementById('limitInput').value;
+  const limit = Math.max(1, Math.min(50, parseInt(limitInput) || 10)); // Garante limite entre 1 e 50
+  
   const statusDiv = document.getElementById('statusMessage');
   const resultsGrid = document.getElementById('resultsGrid');
 
   if (!query) {
-    statusDiv.innerText = "Digite o nome de um produto para pesquisar.";
+    statusDiv.innerText = "Por favor, digite o nome de um produto.";
     return;
   }
 
@@ -45,11 +46,11 @@ async function buscarProdutos() {
       const card = document.createElement('div');
       card.className = 'card';
       
-      const imagemTratada = prod.thumbnail ? prod.thumbnail.replace('-I.jpg', '-O.jpg') : '';
-      const precoFormatado = prod.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const imagemTratada = prod.thumbnail ? prod.thumbnail.replace('-I.jpg', '-O.jpg').replace('http://', 'https://') : '';
+      const precoFormatado = prod.price ? prod.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consulte';
 
       card.innerHTML = `
-        <img src="${imagemTratada}" alt="${prod.title}">
+        <img src="${imagemTratada}" alt="${prod.title}" loading="lazy">
         <h4>${prod.title}</h4>
         <div class="price">${precoFormatado}</div>
         <button class="btn-select">Ver Oferta</button>
@@ -67,7 +68,7 @@ async function buscarProdutos() {
 
   } catch (err) {
     statusDiv.innerText = "Não foi possível carregar os produtos. Tente novamente.";
-    console.error(err);
+    console.error("Erro na busca:", err);
   }
 }
 
@@ -90,11 +91,6 @@ function fecharModal() {
 
 async function enviarParaTelegram() {
   if (!produtoSelecionado) return;
-
-  if (TELEGRAM_BOT_TOKEN.includes("SEU_BOT_TOKEN") || TELEGRAM_CHAT_ID.includes("SEU_CHAT_ID")) {
-    alert("Configure o BOT_TOKEN e o CHAT_ID no arquivo script.js para habilitar o envio!");
-    return;
-  }
 
   const btn = document.getElementById('modalTelegramBtn');
   btn.innerText = "Enviando...";
