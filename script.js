@@ -9,7 +9,7 @@ document.getElementById('searchInput').addEventListener('keypress', function (e)
   }
 });
 
-function buscarProdutos() {
+async function buscarProdutos() {
   const query = document.getElementById('searchInput').value.trim();
   const limitInput = document.getElementById('limitInput').value;
   const limit = Math.max(1, Math.min(50, parseInt(limitInput) || 10));
@@ -25,70 +25,56 @@ function buscarProdutos() {
   statusDiv.innerText = "✨ Buscando as melhores ofertas...";
   resultsGrid.innerHTML = "";
 
-  // Remove script de busca anterior, se existir
-  const scriptAntigo = document.getElementById('ml-jsonp-script');
-  if (scriptAntigo) {
-    scriptAntigo.remove();
-  }
+  // Utiliza um proxy para evitar bloqueios de CORS e SSL pelo navegador
+  const mlUrl = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(mlUrl)}`;
 
-  // Cria chamada via JSONP para contornar o CORS do navegador
-  const script = document.createElement('script');
-  script.id = 'ml-jsonp-script';
-  script.src = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=${limit}&callback=processarRespostaML`;
-  
-  script.onerror = function() {
-    statusDiv.innerText = "Não foi possível carregar os produtos. Tente novamente.";
-  };
+  try {
+    const response = await fetch(proxyUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Erro na requisição: ${response.status}`);
+    }
 
-  document.body.appendChild(script);
-}
+    const data = await response.json();
+    const produtos = data.results;
 
-// Callback global chamado automaticamente pelo Mercado Livre
-window.processarRespostaML = function(response) {
-  const statusDiv = document.getElementById('statusMessage');
-  const resultsGrid = document.getElementById('resultsGrid');
+    statusDiv.innerText = "";
 
-  // Remove o script dinâmico criado
-  const scriptTag = document.getElementById('ml-jsonp-script');
-  if (scriptTag) scriptTag.remove();
+    if (!produtos || produtos.length === 0) {
+      statusDiv.innerText = `Nenhum produto encontrado para "${query}".`;
+      return;
+    }
 
-  if (!response || !response.data || !response.data.results) {
-    statusDiv.innerText = "Erro ao processar resposta do Mercado Livre.";
-    return;
-  }
+    produtos.forEach(prod => {
+      const card = document.createElement('div');
+      card.className = 'card';
 
-  const produtos = response.data.results;
-  statusDiv.innerText = "";
+      const imagemTratada = prod.thumbnail ? prod.thumbnail.replace('-I.jpg', '-O.jpg').replace('http://', 'https://') : '';
+      const precoFormatado = prod.price ? prod.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consulte';
 
-  if (produtos.length === 0) {
-    statusDiv.innerText = "Nenhum produto encontrado para essa busca.";
-    return;
-  }
+      card.innerHTML = `
+        <img src="${imagemTratada}" alt="${prod.title}" loading="lazy">
+        <h4>${prod.title}</h4>
+        <div class="price">${precoFormatado}</div>
+        <button class="btn-select">Ver Oferta</button>
+      `;
 
-  produtos.forEach(prod => {
-    const card = document.createElement('div');
-    card.className = 'card';
+      card.onclick = () => abrirModal({
+        title: prod.title,
+        price: precoFormatado,
+        link: prod.permalink,
+        image: imagemTratada
+      });
 
-    const imagemTratada = prod.thumbnail ? prod.thumbnail.replace('-I.jpg', '-O.jpg').replace('http://', 'https://') : '';
-    const precoFormatado = prod.price ? prod.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consulte';
-
-    card.innerHTML = `
-      <img src="${imagemTratada}" alt="${prod.title}" loading="lazy">
-      <h4>${prod.title}</h4>
-      <div class="price">${precoFormatado}</div>
-      <button class="btn-select">Ver Oferta</button>
-    `;
-
-    card.onclick = () => abrirModal({
-      title: prod.title,
-      price: precoFormatado,
-      link: prod.permalink,
-      image: imagemTratada
+      resultsGrid.appendChild(card);
     });
 
-    resultsGrid.appendChild(card);
-  });
-};
+  } catch (err) {
+    console.error("Erro ao carregar produtos:", err);
+    statusDiv.innerText = "Não foi possível carregar os produtos. Tente novamente.";
+  }
+}
 
 function abrirModal(produto) {
   produtoSelecionado = produto;
