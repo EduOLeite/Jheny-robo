@@ -9,11 +9,11 @@ document.getElementById('searchInput').addEventListener('keypress', function (e)
   }
 });
 
-async function buscarProdutos() {
+function buscarProdutos() {
   const query = document.getElementById('searchInput').value.trim();
   const limitInput = document.getElementById('limitInput').value;
-  const limit = Math.max(1, Math.min(50, parseInt(limitInput) || 10)); // Garante limite entre 1 e 50
-  
+  const limit = Math.max(1, Math.min(50, parseInt(limitInput) || 10));
+
   const statusDiv = document.getElementById('statusMessage');
   const resultsGrid = document.getElementById('resultsGrid');
 
@@ -25,62 +25,80 @@ async function buscarProdutos() {
   statusDiv.innerText = "✨ Buscando as melhores ofertas...";
   resultsGrid.innerHTML = "";
 
-  try {
-    const response = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=${limit}`);
-    
-    if (!response.ok) {
-      throw new Error(`Erro HTTP: ${response.status}`);
-    }
+  // Remove script de busca anterior, se existir
+  const scriptAntigo = document.getElementById('ml-jsonp-script');
+  if (scriptAntigo) {
+    scriptAntigo.remove();
+  }
 
-    const data = await response.json();
-    const produtos = data.results;
+  // Cria chamada via JSONP para contornar o CORS do navegador
+  const script = document.createElement('script');
+  script.id = 'ml-jsonp-script';
+  script.src = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=${limit}&callback=processarRespostaML`;
+  
+  script.onerror = function() {
+    statusDiv.innerText = "Não foi possível carregar os produtos. Tente novamente.";
+  };
 
-    statusDiv.innerText = "";
+  document.body.appendChild(script);
+}
 
-    if (!produtos || produtos.length === 0) {
-      statusDiv.innerText = `Nenhum produto encontrado para "${query}".`;
-      return;
-    }
+// Callback global chamado automaticamente pelo Mercado Livre
+window.processarRespostaML = function(response) {
+  const statusDiv = document.getElementById('statusMessage');
+  const resultsGrid = document.getElementById('resultsGrid');
 
-    produtos.forEach(prod => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      
-      const imagemTratada = prod.thumbnail ? prod.thumbnail.replace('-I.jpg', '-O.jpg').replace('http://', 'https://') : '';
-      const precoFormatado = prod.price ? prod.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consulte';
+  // Remove o script dinâmico criado
+  const scriptTag = document.getElementById('ml-jsonp-script');
+  if (scriptTag) scriptTag.remove();
 
-      card.innerHTML = `
-        <img src="${imagemTratada}" alt="${prod.title}" loading="lazy">
-        <h4>${prod.title}</h4>
-        <div class="price">${precoFormatado}</div>
-        <button class="btn-select">Ver Oferta</button>
-      `;
+  if (!response || !response.data || !response.data.results) {
+    statusDiv.innerText = "Erro ao processar resposta do Mercado Livre.";
+    return;
+  }
 
-      card.onclick = () => abrirModal({
-        title: prod.title,
-        price: precoFormatado,
-        link: prod.permalink,
-        image: imagemTratada
-      });
+  const produtos = response.data.results;
+  statusDiv.innerText = "";
 
-      resultsGrid.appendChild(card);
+  if (produtos.length === 0) {
+    statusDiv.innerText = "Nenhum produto encontrado para essa busca.";
+    return;
+  }
+
+  produtos.forEach(prod => {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const imagemTratada = prod.thumbnail ? prod.thumbnail.replace('-I.jpg', '-O.jpg').replace('http://', 'https://') : '';
+    const precoFormatado = prod.price ? prod.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consulte';
+
+    card.innerHTML = `
+      <img src="${imagemTratada}" alt="${prod.title}" loading="lazy">
+      <h4>${prod.title}</h4>
+      <div class="price">${precoFormatado}</div>
+      <button class="btn-select">Ver Oferta</button>
+    `;
+
+    card.onclick = () => abrirModal({
+      title: prod.title,
+      price: precoFormatado,
+      link: prod.permalink,
+      image: imagemTratada
     });
 
-  } catch (err) {
-    statusDiv.innerText = "Não foi possível carregar os produtos. Tente novamente.";
-    console.error("Erro na busca:", err);
-  }
-}
+    resultsGrid.appendChild(card);
+  });
+};
 
 function abrirModal(produto) {
   produtoSelecionado = produto;
-  
+
   document.getElementById('modalTitle').innerText = produto.title;
   document.getElementById('modalPrice').innerText = produto.price;
   document.getElementById('modalImg').src = produto.image;
   document.getElementById('modalLink').value = produto.link;
   document.getElementById('modalMlBtn').href = produto.link;
-  
+
   document.getElementById('productModal').style.display = 'flex';
 }
 
