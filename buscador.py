@@ -6,7 +6,7 @@ def buscar_produtos_ml(query, limit=5):
     url_oficial = f"https://api.mercadolibre.com/sites/MLB/search?q={query_formatada}&limit={limit}"
     
     # Lista de rotas para garantir que a busca funcione sem travar
-     proxies = [
+    proxies = [
         # Proxy 1: Corsproxy (Alta velocidade)
         f"https://corsproxy.io/?{urllib.parse.quote(url_oficial)}",
         # Proxy 2: Thingproxy (Estável)
