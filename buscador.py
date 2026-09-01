@@ -1,62 +1,37 @@
 import requests
-from urllib.parse import quote
+import streamlit as st
 
-def buscar_produtos_mercado_livre(termo_busca, limite=5):
-    """Busca produtos no Mercado Livre usando a API publica sem necessidade de token."""
-    termo_encoded = quote(termo_busca)
-    
-    # Endpoint de autocompletar/busca rápida pública do Mercado Livre
-    url = f"https://http2.mlstatic.com/resources/sites/MLB/autosuggest?q={termo_encoded}&showFilters=true"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*",
-        "Referer": "https://www.mercadolivre.com.br/"
+CLIENT_ID = st.secrets.get("MERCADO_LIVRE_CLIENT_ID")
+CLIENT_SECRET = st.secrets.get("MERCADO_LIVRE_CLIENT_SECRET")
+
+@st.cache_data(ttl=18000)
+def obter_access_token():
+    url = "https://api.mercadolibre.com/oauth/token"
+    payload = {
+        'grant_type': 'client_credentials',
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET
     }
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
     
     try:
-        # 1. Busca os IDs das sugestões de produtos
-        resp = requests.get(url, headers=headers, timeout=10)
-        if resp.status_code != 200:
-            print(f"Erro na consulta de sugestões: {resp.status_code}")
-            return []
-            
-        dados = resp.json()
-        produtos_encontrados = []
-        
-        # Filtra os resultados de produtos retornados pela busca rápida
-        sugestoes = dados.get("suggested_queries", []) + dados.get("suggested_categories", [])
-        
-        # Faz uma busca alternativa via endpoint de produtos abertos se necessário
-        url_busca_aberta = f"https://api.mercadolibre.com/sites/MLB/search?q={termo_encoded}"
-        resp_produtos = requests.get(url_busca_aberta, headers={"User-Agent": "Googlebot"}, timeout=10)
-        
-        if resp_produtos.status_code == 200:
-            resultados = resp_produtos.json().get("results", [])
-            for item in resultados[:limite]:
-                preco_promo = float(item.get("price", 0.0))
-                preco_orig = item.get("original_price")
-                
-                preco_original = float(preco_orig) if (preco_orig and float(preco_orig) > preco_promo) else preco_promo * 1.20
-                imagem_url = item.get("thumbnail", "").replace("-I.jpg", "-O.jpg")
-                
-                produtos_encontrados.append({
-                    "id": item.get("id"),
-                    "titulo": item.get("title"),
-                    "preco_original": preco_original,
-                    "preco_promo": preco_promo,
-                    "link_original": item.get("permalink"),
-                    "imagem": imagem_url
-                })
-        
-        return produtos_encontrados
+        response = requests.post(url, data=payload, headers=headers)
+        if response.status_code == 200:
+            return response.json().get('access_token')
+        return None
+    except Exception:
+        return None
 
-    except Exception as e:
-        print(f"Erro ao buscar no Mercado Livre: {e}")
-        return []
+def buscar_produtos_ml(query, limit=5):
+    token = obter_access_token()
+    if not token:
+        return None, "Erro na autenticação com a API do Mercado Livre."
 
-if __name__ == "__main__":
-    produtos = buscar_produtos_mercado_livre("notebook", limite=3)
-    print(f"Resultado do teste: {len(produtos)} produtos encontrados.")
-    for p in produtos:
-        print(f"- {p['titulo']}: R$ {p['preco_promo']}")
+    url = f"https://api.mercadolibre.com/sites/MLB/search?q={query}&limit={limit}"
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json().get('results', []), None
+    else:
+        return [], f"Erro na API do Mercado Livre (Código {response.status_code})"
