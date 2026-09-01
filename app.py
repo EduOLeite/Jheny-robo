@@ -1,42 +1,30 @@
 import streamlit as st
 import requests
 
-st.title("Painel de Promoções - Jheny Achadinhos")
+st.set_page_config(page_title="Painel Jheny Achadinhos", layout="wide")
+
+st.title("🛍️ Painel de Promoções - Jheny Achadinhos")
 st.write("Busque promoções reais e envie direto para o canal do Telegram!")
 
 # Lendo credenciais seguras do Secrets
 CLIENT_ID = st.secrets.get("MERCADO_LIVRE_CLIENT_ID")
 CLIENT_SECRET = st.secrets.get("MERCADO_LIVRE_CLIENT_SECRET")
 
-@st.cache_data(ttl=21000)
-def get_access_token():
-    url = "https://api.mercadolibre.com/oauth/token"
-    payload = {
-        'grant_type': 'client_credentials',
-        'client_id': CLIENT_ID,
-        'client_secret': CLIENT_SECRET
-    }
-    headers = {'content-type': 'application/x-www-form-urlencoded'}
-    response = requests.post(url, data=payload, headers=headers)
-    
-    if response.status_code == 200:
-        return response.json().get('access_token')
-    return None
-
-def buscar_produtos(query, limit=5):
-    token = get_access_token()
-    if not token:
-        st.error("Erro ao autenticar com a API do Mercado Livre. Verifique as credenciais.")
-        return []
-
+def buscar_produtos_ml(query, limit=5):
+    # Endpoint público de busca de produtos no Brasil (MLB)
     url = f"https://api.mercadolibre.com/sites/MLB/search?q={query}&limit={limit}"
-    headers = {'Authorization': f'Bearer {token}'}
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
     
     response = requests.get(url, headers=headers)
+    
     if response.status_code == 200:
-        return response.json().get('results', [])
+        dados = response.json()
+        return dados.get('results', [])
     else:
-        st.error(f"Erro na busca: {response.status_code}")
+        st.error(f"Erro na API do Mercado Livre (Código {response.status_code})")
         return []
 
 # Interface do Usuário
@@ -51,14 +39,24 @@ with col3:
 
 if st.button("🔍 Buscar Promoções"):
     with st.spinner("Buscando ofertas..."):
-        produtos = buscar_produtos(termo, qtd)
+        produtos = buscar_produtos_ml(termo, qtd)
         
         if produtos:
             st.success(f"Encontrados {len(produtos)} produtos!")
             for item in produtos:
                 st.markdown("---")
-                st.subheader(item.get('title'))
-                st.write(f"**Preço:** R$ {item.get('price'):.2f}")
-                st.write(f"[Ver no Mercado Livre]({item.get('permalink')})")
+                col_img, col_info = st.columns([1, 3])
+                
+                with col_img:
+                    if item.get('thumbnail'):
+                        # Melhora a resolução da imagem do Mercado Livre
+                        img_url = item.get('thumbnail').replace("-I.jpg", "-O.jpg")
+                        st.image(img_url, width=150)
+                        
+                with col_info:
+                    st.subheader(item.get('title'))
+                    preco = item.get('price', 0)
+                    st.write(f"💰 **Preço:** R$ {preco:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                    st.markdown(f"🔗 [Ver Oferta no Mercado Livre]({item.get('permalink')})")
         else:
-            st.warning("Nenhum produto encontrado.")
+            st.error("Nenhum produto foi encontrado. Tente mudar o termo de busca.")
