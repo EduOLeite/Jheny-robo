@@ -1,43 +1,72 @@
+import cloudscraper
+from bs4 import BeautifulSoup
 import requests
 
 def buscar_produtos_ml(query, limit=5):
-    query_formatada = query.strip().replace(" ", "%20")
+    query_formatada = query.strip().replace(" ", "-")
+    url_site = f"https://lista.mercadolivre.com.br/{query_formatada}"
     
-    # Endpoint alternativo com suporte a CORS e permissao publica
-    url = f"https://api.mercadolibre.com/sites/MLB/search?q={query_formatada}&limit={limit}&sort=relevance"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Cache-Control": "max-age=0"
-    }
-    
-    session = requests.Session()
+    # Instancia o scraper que desvia do Cloudflare (evita erro 403)
+    scraper = cloudscraper.create_scraper(
+        browser={
+            'browser': 'chrome',
+            'platform': 'windows',
+            'desktop': True
+        }
+    )
     
     try:
-        response = session.get(url, headers=headers, timeout=12)
+        response = scraper.get(url_site, timeout=15)
         
         if response.status_code == 200:
-            dados = response.json()
-            return dados.get('results', []), None
-        
-        # Caso o IP do Streamlit sofra bloqueio 403, tenta buscar pela rota publica de itens por categoria
-        elif response.status_code == 403:
-            url_cat = f"https://api.mercadolibre.com/domain_discovery/search?q={query_formatada}"
-            res_cat = session.get(url_cat, headers=headers, timeout=10)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            itens = soup.find_all('li', class_='ui-search-layout__item')
             
-            if res_cat.status_code == 200 and len(res_cat.json()) > 0:
-                cat_id = res_cat.json()[0].get('category_id')
-                url_items = f"https://api.mercadolibre.com/sites/MLB/search?category={cat_id}&limit={limit}"
-                res_items = session.get(url_items, headers=headers, timeout=10)
+            # Se a estrutura antiga não retornar, tenta seletores alternativos do ML
+            if not itens:
+                itens = soup.select('.poly-card') or soup.select('ol.ui-search-layout > li')
                 
-                if res_items.status_code == 200:
-                    return res_items.json().get('results', []), None
+            resultados = []
+            for item in itens[:limit]:
+                # Título
+                titulo_elem = item.select_one('.ui-search-item__title') or item.select_one('.poly-component__title')
+                titulo = titulo_elem.text.strip() if titulo_elem else "Produto Mercado Livre"
+                
+                # Link
+                link_elem = item.select_one('a.ui-search-link') or item.select_one('a.poly-component__title') or item.find('a', href=True)
+                link = link_elem['href'] if link_elem and 'href' in link_elem.attrs else "#"
+                
+                # Preço
+                preco_elem = item.select_one('.andes-money-amount__fraction') or item.select_one('.price-tag-fraction')
+                preco_str = preco_elem.text.replace('.', '').strip() if preco_elem else "0"
+                try:
+                    preco = float(preco_str)
+                except ValueError:
+                    preco = 0.0
+                
+                # Imagem
+                img_elem = item.find('img')
+                img_url = ""
+                if img_elem:
+                    img_url = img_elem.get('data-src') or img_elem.get('src') or ""
+
+                resultados.append({
+                    'title': titulo,
+                    'permalink': link,
+                    'price': preco,
+                    'thumbnail': img_url
+                })
+                
+            if resultados:
+                return resultados, None
             
-            return [], "Bloqueio temporario de IP do servidor. Tente novamente em alguns segundos ou pesquise outro termo."
-        else:
-            return [], f"Erro na API (HTTP {response.status_code})"
+        # Fallback usando API interna de sugestões
+        url_api_alt = f"https://api.mercadolibre.com/sites/MLB/search?q={query}&limit={limit}"
+        res_api = requests.get(url_api_alt, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        if res_api.status_code == 200:
+            return res_api.json().get('results', []), None
             
+        return [], f"Não foi possível extrair produtos para o termo '{query}'."
+
     except Exception as e:
-        return [], f"Erro de conexão: {str(e)}"
+        return [], f"Erro ao acessar Mercado Livre: {str(e)}"
