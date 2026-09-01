@@ -25,15 +25,12 @@ async function buscarProdutos() {
   statusDiv.innerText = "✨ Buscando as melhores ofertas...";
   resultsGrid.innerHTML = "";
 
-  // Utiliza um proxy para evitar bloqueios de CORS e SSL pelo navegador
-  const mlUrl = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(mlUrl)}`;
-
   try {
-    const response = await fetch(proxyUrl);
+    // Chama a nossa rota interna na Vercel
+    const response = await fetch(`/api/buscar?q=${encodeURIComponent(query)}&limit=${limit}`);
     
     if (!response.ok) {
-      throw new Error(`Erro na requisição: ${response.status}`);
+      throw new Error(`Erro status: ${response.status}`);
     }
 
     const data = await response.json();
