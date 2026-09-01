@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jheny Achadinhos - Painel de Ofertas</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="app-container">
+    <header class="header">
+      <div class="logo">🛍️ Jheny <span>Achadinhos</span></div>
+      <p>Busque as melhores ofertas do Mercado Livre e envie direto para o Telegram!</p>
+    </header>
+
+    <section class="search-section">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="O que você quer buscar hoje? (ex: smartwatch, vestido)">
+        <select id="limitSelect">
+          <option value="6">6 Produtos</option>
+          <option value="12" selected>12 Produtos</option>
+          <option value="24">24 Produtos</option>
+        </select>
+        <button id="searchBtn" onclick="buscarProdutos()">✨ Buscar Promoções</button>
+      </div>
+    </section>
+
+    <div id="statusMessage" class="status-message"></div>
+
+    <!-- Grade de Produtos Encontrados -->
+    <section id="resultsGrid" class="results-grid"></section>
+  </div>
+
+  <!-- Modal para Detalhes e Envio ao Telegram -->
+  <div id="productModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="fecharModal()">&times;</span>
+      <div class="modal-body">
+        <img id="modalImg" src="" alt="Produto">
+        <div class="modal-info">
+          <h3 id="modalTitle">Título do Produto</h3>
+          <div class="price-tag" id="modalPrice">R$ 0,00</div>
+          
+          <label for="modalLink">Link do Produto:</label>
+          <input type="text" id="modalLink" readonly>
+
+          <div class="modal-actions">
+            <a id="modalMlBtn" href="#" target="_blank" class="btn-ml">🔗 Abrir no Mercado Livre</a>
+            <button id="modalTelegramBtn" class="btn-telegram" onclick="enviarParaTelegram()">✈️ Enviar para o Telegram</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
