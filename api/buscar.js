@@ -1,5 +1,4 @@
 module.exports = async (req, res) => {
-  // Permite acesso de qualquer origem (CORS)
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -19,18 +18,52 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Termo de busca não informado.' });
   }
 
-  try {
-    const url = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(q)}&limit=${limit}`;
-    const response = await fetch(url);
+  const CLIENT_ID = "7613714423454405";
+  const CLIENT_SECRET = "x9q0QWG6O4wDRaeqGF08hSU7SQaNWdLj";
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `Erro Mercado Livre: ${response.status}` });
+  try {
+    // 1. Solcita o Access Token temporário ao Mercado Livre via Client Credentials
+    const authUrl = 'https://api.mercadolibre.com/oauth/token';
+    const authParams = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET
+    });
+
+    const authResponse = await fetch(authUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: authParams.toString()
+    });
+
+    if (!authResponse.ok) {
+      const authError = await authResponse.text();
+      console.error('Erro na autenticação Mercado Livre:', authError);
+      return res.status(authResponse.status).json({ error: 'Falha ao autenticar no Mercado Livre.' });
     }
 
-    const data = await response.json();
+    const authData = await authResponse.json();
+    const accessToken = authData.access_token;
+
+    // 2. Realiza a busca utilizando o Access Token obtido
+    const searchUrl = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(q)}&limit=${limit}`;
+    const searchResponse = await fetch(searchUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!searchResponse.ok) {
+      return res.status(searchResponse.status).json({ error: `Erro Mercado Livre: ${searchResponse.status}` });
+    }
+
+    const data = await searchResponse.json();
     return res.status(200).json(data);
+
   } catch (error) {
-    console.error('Erro na função backend:', error);
-    return res.status(500).json({ error: 'Falha ao buscar produtos no Mercado Livre.' });
+    console.error('Erro no servidor Backend:', error);
+    return res.status(500).json({ error: 'Falha interna no servidor ao processar a busca.' });
   }
 };
